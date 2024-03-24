@@ -16,14 +16,11 @@
 
 package io.livekit.android.compose.meet
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -54,16 +51,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import io.livekit.android.compose.meet.ui.theme.LKMeetAppTheme
 
 class MainActivity : ComponentActivity() {
 
-    val viewModel by viewModels<MainViewModel>()
+    private val viewModel by viewModels<MainViewModel>()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        requestNeededPermissions()
         setContent {
             MainContent(
                 defaultUrl = viewModel.getSavedUrl(),
@@ -71,6 +66,12 @@ class MainActivity : ComponentActivity() {
                 defaultE2eeKey = viewModel.getSavedE2EEKey(),
                 defaultE2eeOn = viewModel.getE2EEOptionsOn(),
                 onConnect = { url, token, e2eeKey, e2eeOn ->
+                    // Save settings for future app launches.
+                    viewModel.setSavedUrl(url)
+                    viewModel.setSavedToken(token)
+                    viewModel.setSavedE2EEKey(e2eeKey)
+                    viewModel.setSavedE2EEOn(e2eeOn)
+
                     val intent = Intent(this@MainActivity, CallActivity::class.java).apply {
                         putExtra(
                             CallActivity.KEY_ARGS,
@@ -84,26 +85,14 @@ class MainActivity : ComponentActivity() {
                     }
                     startActivity(intent)
                 },
-                onSave = { url, token, e2eeKey, e2eeOn ->
-                    viewModel.setSavedUrl(url)
-                    viewModel.setSavedToken(token)
-                    viewModel.setSavedE2EEKey(e2eeKey)
-                    viewModel.setSavedE2EEOn(e2eeOn)
-
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Values saved.",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                },
                 onReset = {
                     viewModel.reset()
                     Toast.makeText(
                         this@MainActivity,
                         "Values reset.",
-                        Toast.LENGTH_SHORT
+                        Toast.LENGTH_SHORT,
                     ).show()
-                }
+                },
             )
         }
     }
@@ -119,7 +108,6 @@ class MainActivity : ComponentActivity() {
         defaultE2eeKey: String = MainViewModel.E2EE_KEY,
         defaultE2eeOn: Boolean = false,
         onConnect: (url: String, token: String, e2eeKey: String, e2eeOn: Boolean) -> Unit = { _, _, _, _ -> },
-        onSave: (url: String, token: String, e2eeKey: String, e2eeOn: Boolean) -> Unit = { _, _, _, _ -> },
         onReset: () -> Unit = {},
     ) {
         LKMeetAppTheme {
@@ -146,7 +134,7 @@ class MainActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.height(50.dp))
                         Image(
                             painter = painterResource(id = R.drawable.banner_dark),
-                            contentDescription = "",
+                            contentDescription = "LiveKit Banner",
                         )
                         Spacer(modifier = Modifier.height(20.dp))
                         OutlinedTextField(
@@ -180,7 +168,7 @@ class MainActivity : ComponentActivity() {
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Enable E2EE")
+                            Text("Enable end-to-end encryption (E2EE)")
                             Switch(
                                 checked = e2eeOn,
                                 onCheckedChange = { e2eeOn = it },
@@ -194,56 +182,18 @@ class MainActivity : ComponentActivity() {
                         }
 
                         Spacer(modifier = Modifier.height(20.dp))
-                        Button(onClick = { onSave(url, token, e2eeKey, e2eeOn) }) {
-                            Text("Save Values")
-                        }
-
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Button(onClick = {
-                            onReset()
-                            url = MainViewModel.URL
-                            token = MainViewModel.TOKEN
-                        }) {
+                        Button(
+                            onClick = {
+                                onReset()
+                                url = MainViewModel.URL
+                                token = MainViewModel.TOKEN
+                            },
+                        ) {
                             Text("Reset Values")
                         }
                     }
                 }
             }
         }
-    }
-}
-
-
-fun ComponentActivity.requestNeededPermissions(onPermissionsGranted: (() -> Unit)? = null) {
-    val requestPermissionLauncher =
-        registerForActivityResult(
-            ActivityResultContracts.RequestMultiplePermissions()
-        ) { grants ->
-            // Check if any permissions weren't granted.
-            for (grant in grants.entries) {
-                if (!grant.value) {
-                    Toast.makeText(
-                        this,
-                        "Missing permission: ${grant.key}",
-                        Toast.LENGTH_SHORT
-                    )
-                        .show()
-                }
-            }
-
-            // If all granted, notify if needed.
-            if (onPermissionsGranted != null && grants.all { it.value }) {
-                onPermissionsGranted()
-            }
-        }
-
-    val neededPermissions = listOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
-        .filter { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_DENIED }
-        .toTypedArray()
-
-    if (neededPermissions.isNotEmpty()) {
-        requestPermissionLauncher.launch(neededPermissions)
-    } else {
-        onPermissionsGranted?.invoke()
     }
 }

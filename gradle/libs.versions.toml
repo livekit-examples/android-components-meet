@@ -15,7 +15,7 @@ androidx-test-ext-junit = "1.1.5"
 espresso-core = "3.5.1"
 
 [libraries]
-livekit-lib = { module = "io.livekit:livekit-android", version = "2.0.1" }
+livekit-lib = { module = "io.livekit:livekit-android", version = "2.0.0" }
 livekit-components = { module = "io.livekit:livekit-android-compose-components", version = "1.0.0" }
 
 kotlinx-coroutines-lib = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }

@@ -22,56 +22,52 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.material.*
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.constraintlayout.compose.Dimension
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import io.livekit.android.audio.AudioSwitchHandler
-import io.livekit.android.compose.meet.ui.ParticipantItem
-import io.livekit.android.compose.meet.ui.SelectAudioDeviceDialog
+import com.github.ajalt.timberkt.Timber
+import io.livekit.android.RoomOptions
+import io.livekit.android.compose.local.RoomScope
+import io.livekit.android.compose.meet.state.rememberEnableCamera
+import io.livekit.android.compose.meet.state.rememberEnableMic
+import io.livekit.android.compose.meet.state.rememberPrimarySpeaker
+import io.livekit.android.compose.meet.ui.ControlButton
+import io.livekit.android.compose.meet.ui.PrimarySpeakerView
+import io.livekit.android.compose.meet.ui.SendMessageDialog
+import io.livekit.android.compose.meet.ui.TrackItem
 import io.livekit.android.compose.meet.ui.theme.LKMeetAppTheme
-import io.livekit.android.room.Room
-import io.livekit.android.room.participant.Participant
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import io.livekit.android.compose.state.rememberTracks
+import io.livekit.android.compose.ui.flipped
+import io.livekit.android.e2ee.E2EEOptions
+import io.livekit.android.room.track.CameraPosition
+import io.livekit.android.room.track.LocalVideoTrack
+import io.livekit.android.room.track.Track
 import kotlinx.parcelize.Parcelize
 
-class CallActivity : AppCompatActivity() {
-
-    private val viewModel: CallViewModel by viewModelByFactory {
-        val args = intent.getParcelableExtra<BundleArgs>(KEY_ARGS)
-            ?: throw NullPointerException("args is null!")
-        CallViewModel(
-            url = args.url,
-            token = args.token,
-            e2ee = args.e2eeOn,
-            e2eeKey = args.e2eeKey,
-            application = application,
-        )
-    }
+class CallActivity : ComponentActivity() {
 
     private val screenCaptureIntentLauncher =
         registerForActivityResult(
@@ -82,58 +78,32 @@ class CallActivity : AppCompatActivity() {
             if (resultCode != Activity.RESULT_OK || data == null) {
                 return@registerForActivityResult
             }
-            viewModel.startScreenCapture(data)
+            // TODO
+            // viewModel.startScreenCapture(data)
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        val args = intent.getParcelableExtra<BundleArgs>(KEY_ARGS)
+            ?: throw NullPointerException("args is null!")
+
+        val e2eeOptions = if (args.e2eeOn && !args.e2eeKey.isNullOrEmpty()) {
+            E2EEOptions().apply {
+                this.keyProvider.setSharedKey(args.e2eeKey)
+            }
+        } else {
+            null
+        }
+
         // Setup compose view.
         setContent {
-            val room = viewModel.room
-            val participants by viewModel.participants.collectAsState(initial = emptyList())
-            val primarySpeaker by viewModel.primarySpeaker.collectAsState()
-            val activeSpeakers by viewModel.activeSpeakers.collectAsState(initial = emptyList())
-            val micEnabled by viewModel.micEnabled.observeAsState(true)
-            val videoEnabled by viewModel.cameraEnabled.observeAsState(true)
-            val screencastEnabled by viewModel.screenshareEnabled.observeAsState(false)
-            val permissionAllowed by viewModel.permissionAllowed.collectAsState()
             Content(
-                room,
-                participants,
-                primarySpeaker,
-                activeSpeakers,
-                micEnabled,
-                videoEnabled,
-                screencastEnabled,
-                audioSwitchHandler = viewModel.audioHandler,
-                permissionAllowed = permissionAllowed,
-                onExitClick = { finish() },
-                onSendMessage = { viewModel.sendData(it) },
-                onSimulateMigration = { viewModel.simulateMigration() },
-                onSimulateNodeFailure = { viewModel.simulateNodeFailure() },
-                fullReconnect = { viewModel.reconnect() },
+                url = args.url,
+                token = args.token,
+                e2eeOptions = e2eeOptions
             )
-        }
-
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.RESUMED) {
-                viewModel.error.collect {
-                    if (it != null) {
-                        Toast.makeText(this@CallActivity, "Error: $it", Toast.LENGTH_LONG).show()
-                        viewModel.dismissError()
-                    }
-                }
-            }
-        }
-
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.RESUMED) {
-                viewModel.dataReceived.collect {
-                    Toast.makeText(this@CallActivity, "Data received: $it", Toast.LENGTH_LONG).show()
-                }
-            }
         }
     }
 
@@ -144,289 +114,201 @@ class CallActivity : AppCompatActivity() {
         screenCaptureIntentLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
     }
 
-    val previewParticipant = Participant(
-        Participant.Sid("asdf"),
-        Participant.Identity("asdf"),
-        Dispatchers.Main,
-    )
-
-    @Preview(showBackground = true, showSystemUi = true)
     @Composable
     fun Content(
-        room: Room? = null,
-        participants: List<Participant> = listOf(previewParticipant),
-        primarySpeaker: Participant? = previewParticipant,
-        activeSpeakers: List<Participant> = listOf(previewParticipant),
-        micEnabled: Boolean = true,
-        videoEnabled: Boolean = true,
-        screencastEnabled: Boolean = false,
-        permissionAllowed: Boolean = true,
-        audioSwitchHandler: AudioSwitchHandler? = null,
-        onExitClick: () -> Unit = {},
-        error: Throwable? = null,
-        onSnackbarDismiss: () -> Unit = {},
-        onSendMessage: (String) -> Unit = {},
-        onSimulateMigration: () -> Unit = {},
-        onSimulateNodeFailure: () -> Unit = {},
-        fullReconnect: () -> Unit = {},
+        url: String,
+        token: String,
+        e2eeOptions: E2EEOptions?,
     ) {
+        // Track whether user wants their camera/mic enabled.
+        var userEnabledCamera by rememberSaveable { mutableStateOf(false) }
+        var userEnabledMic by rememberSaveable { mutableStateOf(false) }
+
+        val enableCamera = rememberEnableCamera(enabled = userEnabledCamera)
+        val enableMic = rememberEnableMic(enabled = userEnabledMic)
+
+        var cameraPosition by remember { mutableStateOf(CameraPosition.FRONT) }
         LKMeetAppTheme(darkTheme = true) {
-            ConstraintLayout(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-            ) {
-                val (speakerView, audienceRow, buttonBar) = createRefs()
+            RoomScope(
+                url = url,
+                token = token,
+                audio = enableMic,
+                video = enableCamera,
+                connect = true,
+                roomOptions = RoomOptions(adaptiveStream = true, dynacast = true, e2eeOptions = e2eeOptions),
+                liveKitOverrides = null,
+                onError = { _, exception ->
+                    Timber.e(exception)
+                    Toast.makeText(this@CallActivity, "Error: $exception", Toast.LENGTH_LONG).show()
+                },
+                passedRoom = null
+            ) { room ->
 
-                // Primary speaker view
-                Surface(
-                    modifier = Modifier.constrainAs(speakerView) {
-                        top.linkTo(parent.top)
-                        start.linkTo(parent.start)
-                        end.linkTo(parent.end)
-                        bottom.linkTo(audienceRow.top)
-                        width = Dimension.fillToConstraints
-                        height = Dimension.fillToConstraints
-                    },
-                ) {
-                    if (room != null && primarySpeaker != null) {
-                        ParticipantItem(
-                            room = room,
-                            participant = primarySpeaker,
-                            isSpeaking = activeSpeakers.contains(primarySpeaker),
-                        )
-                    }
-                }
-
-                // Audience row to display all participants.
-                LazyRow(
+                ConstraintLayout(
                     modifier = Modifier
-                        .constrainAs(audienceRow) {
-                            top.linkTo(speakerView.bottom)
-                            bottom.linkTo(buttonBar.top)
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
+                ) {
+                    val (speakerView, audienceRow, buttonBar) = createRefs()
+
+                    // Primary speaker view
+                    Surface(
+                        modifier = Modifier.constrainAs(speakerView) {
+                            top.linkTo(parent.top)
                             start.linkTo(parent.start)
                             end.linkTo(parent.end)
+                            bottom.linkTo(audienceRow.top)
                             width = Dimension.fillToConstraints
-                            height = Dimension.value(120.dp)
+                            height = Dimension.fillToConstraints
                         },
-                ) {
-                    if (room != null) {
+                    ) {
+                        val primarySpeaker = rememberPrimarySpeaker(room = room)
+                        PrimarySpeakerView(participant = primarySpeaker)
+                    }
+
+                    val trackReferences = rememberTracks(
+                        sources = listOf(
+                            Track.Source.CAMERA,
+                            Track.Source.SCREEN_SHARE
+                        ),
+                        usePlaceholders = setOf(
+                            Track.Source.CAMERA,
+                        ),
+                        onlySubscribed = false
+                    )
+
+                    // Audience row to display all participants.
+                    LazyRow(
+                        modifier = Modifier
+                            .constrainAs(audienceRow) {
+                                top.linkTo(speakerView.bottom)
+                                bottom.linkTo(buttonBar.top)
+                                start.linkTo(parent.start)
+                                end.linkTo(parent.end)
+                                width = Dimension.fillToConstraints
+                                height = Dimension.value(120.dp)
+                            },
+                    ) {
                         items(
-                            count = participants.size,
-                            key = { index -> participants[index].sid.value },
+                            count = trackReferences.size,
+                            key = { index -> trackReferences[index].participant.sid.value + trackReferences[index].source },
                         ) { index ->
-                            ParticipantItem(
-                                room = room,
-                                participant = participants[index],
-                                isSpeaking = activeSpeakers.contains(participants[index]),
+                            TrackItem(
+                                trackReference = trackReferences[index],
                                 modifier = Modifier
                                     .fillMaxHeight()
                                     .aspectRatio(1.0f, true),
                             )
                         }
                     }
-                }
 
-                // Control bar for any switches such as mic/camera enable/disable.
-                Column(
-                    modifier = Modifier
-                        .padding(top = 10.dp, bottom = 20.dp)
-                        .fillMaxWidth()
-                        .constrainAs(buttonBar) {
-                            bottom.linkTo(parent.bottom)
-                            width = Dimension.fillToConstraints
-                            height = Dimension.wrapContent
-                        },
-                    verticalArrangement = Arrangement.SpaceEvenly,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    val controlSize = 40.dp
-                    val controlPadding = 4.dp
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        Surface(
-                            onClick = { viewModel.setMicEnabled(!micEnabled) },
-                            modifier = Modifier
-                                .size(controlSize)
-                                .padding(controlPadding),
-                        ) {
-                            val resource =
-                                if (micEnabled) R.drawable.outline_mic_24 else R.drawable.outline_mic_off_24
-                            Icon(
-                                painterResource(id = resource),
-                                contentDescription = "Mic",
-                                tint = Color.White,
-                            )
-                        }
-                        Surface(
-                            onClick = { viewModel.setCameraEnabled(!videoEnabled) },
-                            modifier = Modifier
-                                .size(controlSize)
-                                .padding(controlPadding),
-                        ) {
-                            val resource =
-                                if (videoEnabled) R.drawable.outline_videocam_24 else R.drawable.outline_videocam_off_24
-                            Icon(
-                                painterResource(id = resource),
-                                contentDescription = "Video",
-                                tint = Color.White,
-                            )
-                        }
-                        Surface(
-                            onClick = { viewModel.flipCamera() },
-                            modifier = Modifier
-                                .size(controlSize)
-                                .padding(controlPadding),
-                        ) {
-                            Icon(
-                                painterResource(id = R.drawable.outline_flip_camera_android_24),
-                                contentDescription = "Flip Camera",
-                                tint = Color.White,
-                            )
-                        }
-                        Surface(
-                            onClick = {
-                                if (!screencastEnabled) {
-                                    requestMediaProjection()
-                                } else {
-                                    viewModel.stopScreenCapture()
-                                }
+                    // Control bar for any switches such as mic/camera enable/disable.
+                    Column(
+                        modifier = Modifier
+                            .padding(top = 10.dp, bottom = 20.dp)
+                            .fillMaxWidth()
+                            .constrainAs(buttonBar) {
+                                bottom.linkTo(parent.bottom)
+                                width = Dimension.fillToConstraints
+                                height = Dimension.wrapContent
                             },
-                            modifier = Modifier
-                                .size(controlSize)
-                                .padding(controlPadding),
-                        ) {
-                            val resource =
-                                if (screencastEnabled) R.drawable.baseline_cast_connected_24 else R.drawable.baseline_cast_24
-                            Icon(
-                                painterResource(id = resource),
-                                contentDescription = "Flip Camera",
-                                tint = Color.White,
-                            )
-                        }
-
-                        var showMessageDialog by remember { mutableStateOf(false) }
-                        var messageToSend by remember { mutableStateOf("") }
-                        Surface(
-                            onClick = { showMessageDialog = true },
-                            modifier = Modifier
-                                .size(controlSize)
-                                .padding(controlPadding),
-                        ) {
-                            Icon(
-                                painterResource(id = R.drawable.baseline_chat_24),
-                                contentDescription = "Send Message",
-                                tint = Color.White,
-                            )
-                        }
-
-                        if (showMessageDialog) {
-                            AlertDialog(
-                                onDismissRequest = {
-                                    showMessageDialog = false
-                                    messageToSend = ""
-                                },
-                                title = {
-                                    Text(text = "Send Message")
-                                },
-                                text = {
-                                    OutlinedTextField(
-                                        value = messageToSend,
-                                        onValueChange = { messageToSend = it },
-                                        label = { Text("Message") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                },
-                                confirmButton = {
-                                    Button(
-                                        onClick = {
-                                            onSendMessage(messageToSend)
-                                            showMessageDialog = false
-                                            messageToSend = ""
-                                        },
-                                    ) { Text("Send") }
-                                },
-                                dismissButton = {
-                                    Button(
-                                        onClick = {
-                                            showMessageDialog = false
-                                            messageToSend = ""
-                                        },
-                                    ) { Text("Cancel") }
-                                },
-                                containerColor = Color.Black,
-                            )
-                        }
-                        Surface(
-                            onClick = { onExitClick() },
-                            modifier = Modifier
-                                .size(controlSize)
-                                .padding(controlPadding),
-                        ) {
-                            Icon(
-                                painterResource(id = R.drawable.ic_baseline_cancel_24),
-                                contentDescription = "Flip Camera",
-                                tint = Color.White,
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.Bottom,
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        var showAudioDeviceDialog by remember { mutableStateOf(false) }
-                        Surface(
-                            onClick = { showAudioDeviceDialog = true },
-                            modifier = Modifier
-                                .size(controlSize)
-                                .padding(controlPadding),
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.Bottom,
                         ) {
-                            val resource = R.drawable.volume_up_48px
-                            Icon(
-                                painterResource(id = resource),
-                                contentDescription = "Select Audio Device",
-                                tint = Color.White,
+
+                            val micResource =
+                                if (userEnabledMic) R.drawable.outline_mic_24 else R.drawable.outline_mic_off_24
+                            ControlButton(
+                                resourceId = micResource,
+                                contentDescription = "Mic",
+                                onClick = { userEnabledMic = !userEnabledMic }
                             )
-                        }
-                        if (showAudioDeviceDialog) {
-                            SelectAudioDeviceDialog(
-                                onDismissRequest = { showAudioDeviceDialog = false },
-                                selectDevice = { audioSwitchHandler?.selectDevice(it) },
-                                currentDevice = audioSwitchHandler?.selectedAudioDevice,
-                                availableDevices = audioSwitchHandler?.availableAudioDevices ?: emptyList(),
+
+
+                            val cameraResource =
+                                if (userEnabledCamera) R.drawable.outline_videocam_24 else R.drawable.outline_videocam_off_24
+                            ControlButton(
+                                resourceId = cameraResource,
+                                contentDescription = "Camera",
+                                onClick = { userEnabledCamera = !userEnabledCamera }
                             )
-                        }
-                        Surface(
-                            onClick = { viewModel.toggleSubscriptionPermissions() },
-                            modifier = Modifier
-                                .size(controlSize)
-                                .padding(controlPadding),
-                        ) {
-                            val resource =
-                                if (permissionAllowed) R.drawable.account_cancel_outline else R.drawable.account_cancel
-                            Icon(
-                                painterResource(id = resource),
-                                contentDescription = "Permissions",
-                                tint = Color.White,
+
+                            ControlButton(
+                                resourceId = R.drawable.outline_flip_camera_android_24,
+                                contentDescription = "Flip Camera",
+                                onClick = {
+                                    val cameraTrack =
+                                        room.localParticipant
+                                            .getTrackPublication(Track.Source.CAMERA)
+                                            ?.track as? LocalVideoTrack
+                                            ?: return@ControlButton
+
+                                    cameraPosition = cameraPosition.flipped()
+                                    cameraTrack.switchCamera(position = cameraPosition)
+                                }
                             )
+
+//                            val screenShareResource =
+//                                if (screenShareEnabled) R.drawable.baseline_cast_connected_24 else R.drawable.baseline_cast_24
+//                            LKButton(
+//                                resourceId = screenShareResource,
+//                                contentDescription = "Screen share",
+//                                onClick = { /* TODO */}
+//                            )
+
+                            var showMessageDialog by rememberSaveable { mutableStateOf(false) }
+                            ControlButton(
+                                resourceId = R.drawable.baseline_chat_24,
+                                contentDescription = "Send Message",
+                                onClick = { showMessageDialog = true }
+                            )
+
+                            if (showMessageDialog) {
+                                SendMessageDialog(
+                                    onDismissRequest = { showMessageDialog = false },
+                                    onSendMessage = { /* TODO */ }
+                                )
+                            }
+
+                            ControlButton(
+                                resourceId = R.drawable.ic_baseline_cancel_24,
+                                contentDescription = "Disconnect",
+                                onClick = { finish() }
+                            )
+
                         }
 
+//                        Spacer(modifier = Modifier.height(10.dp))
+//
+//                        Row(
+//                            modifier = Modifier.fillMaxWidth(),
+//                            horizontalArrangement = Arrangement.SpaceEvenly,
+//                            verticalAlignment = Alignment.Bottom,
+//                        ) {
+//                            var showAudioDeviceDialog by remember { mutableStateOf(false) }
+//                            LKButton(
+//                                resourceId = R.drawable.volume_up_48px,
+//                                contentDescription = "Select Audio Device",
+//                                onClick = { showAudioDeviceDialog = true },
+//                            )
+//                            if (showAudioDeviceDialog) {
+//                                SelectAudioDeviceDialog(
+//                                    onDismissRequest = { showAudioDeviceDialog = false },
+//                                    selectDevice = { audioSwitchHandler?.selectDevice(it) },
+//                                    currentDevice = audioSwitchHandler?.selectedAudioDevice,
+//                                    availableDevices = audioSwitchHandler?.availableAudioDevices ?: emptyList(),
+//                                )
+//                            }
+//                        }
                     }
+
                 }
 
-                // Snack bar for errors TODO
-                if (error != null) {
-
-//                    Scaffold(
-//                    )
-                }
             }
         }
     }
@@ -439,7 +321,7 @@ class CallActivity : AppCompatActivity() {
     data class BundleArgs(
         val url: String,
         val token: String,
-        val e2eeKey: String,
+        val e2eeKey: String?,
         val e2eeOn: Boolean,
     ) : Parcelable
 }

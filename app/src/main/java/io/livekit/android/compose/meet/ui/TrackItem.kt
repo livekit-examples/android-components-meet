@@ -18,12 +18,14 @@ package io.livekit.android.compose.meet.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
@@ -34,6 +36,7 @@ import androidx.constraintlayout.compose.Dimension
 import io.livekit.android.compose.meet.R
 import io.livekit.android.compose.meet.ui.theme.BlueMain
 import io.livekit.android.compose.meet.ui.theme.NoVideoBackground
+import io.livekit.android.compose.state.rememberTrackMuted
 import io.livekit.android.compose.types.TrackReference
 import io.livekit.android.compose.ui.VideoTrackView
 import io.livekit.android.room.participant.ConnectionQuality
@@ -50,11 +53,11 @@ fun TrackItem(
     val identity by trackReference.participant::identity.flow.collectAsState()
     val audioTracks by trackReference.participant::audioTrackPublications.flow.collectAsState()
     val isSpeaking by trackReference.participant::isSpeaking.flow.collectAsState()
+    val isVideoTrackMuted = rememberTrackMuted(trackReference)
 
     val identityBarPadding = 4.dp
     ConstraintLayout(
         modifier = modifier
-            .background(NoVideoBackground)
             .run {
                 if (isSpeaking) {
                     border(2.dp, BlueMain)
@@ -63,7 +66,7 @@ fun TrackItem(
                 }
             },
     ) {
-        val (videoItem, identityBar, identityText, muteIndicator, connectionIndicator) = createRefs()
+        val (videoItem, videoMutedIndicator, identityBar, identityText, muteIndicator, connectionIndicator) = createRefs()
 
         VideoTrackView(
             trackReference = trackReference,
@@ -77,6 +80,27 @@ fun TrackItem(
             },
         )
 
+        if (isVideoTrackMuted) {
+            Box(
+                modifier = Modifier
+                    .constrainAs(videoMutedIndicator) {
+                        top.linkTo(parent.top)
+                        bottom.linkTo(parent.bottom)
+                        start.linkTo(parent.start)
+                        end.linkTo(parent.end)
+                        width = Dimension.fillToConstraints
+                        height = Dimension.fillToConstraints
+                    }
+                    .background(NoVideoBackground),
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.outline_videocam_off_24),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+        }
         Surface(
             color = Color(0x80000000),
             modifier = Modifier.constrainAs(identityBar) {

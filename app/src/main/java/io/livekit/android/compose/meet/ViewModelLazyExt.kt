@@ -1,13 +1,13 @@
 package io.livekit.android.compose.meet
 
+import androidx.activity.ComponentActivity
 import androidx.activity.viewModels
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 
 typealias CreateViewModel<VM> = () -> VM
 
-inline fun <reified VM : ViewModel> FragmentActivity.viewModelByFactory(
+inline fun <reified VM : ViewModel> ComponentActivity.viewModelByFactory(
     noinline create: CreateViewModel<VM>
 ): Lazy<VM> {
     return viewModels {

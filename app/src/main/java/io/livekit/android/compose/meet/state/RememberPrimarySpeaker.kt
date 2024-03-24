@@ -22,26 +22,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import io.livekit.android.compose.state.rememberTracks
 import io.livekit.android.room.Room
 import io.livekit.android.room.participant.Participant
-import io.livekit.android.room.track.Track
 import io.livekit.android.util.flow
 import kotlinx.coroutines.flow.combine
 
 /**
  * Finds the primary speaker.
+ *
+ * If there's more than one speaker, keep the existing speaker
+ * until they stop speaking, at which point choose the next available speaker.
  */
 @Composable
 fun rememberPrimarySpeaker(room: Room): Participant {
 
     var participantState by remember {
-        // Initialize with
         mutableStateOf(
             calculatePrimarySpeaker(
                 previousSpeaker = null,
-                activeSpeakers = room.activeSpeakers,
-                participantsList = room.remoteParticipants.values + room.localParticipant,
                 room = room
             )
         )
@@ -51,8 +49,6 @@ fun rememberPrimarySpeaker(room: Room): Participant {
         combine(room::remoteParticipants.flow, room::activeSpeakers.flow) { remoteParticipants, activeSpeakers ->
             participantState = calculatePrimarySpeaker(
                 previousSpeaker = participantState,
-                activeSpeakers = room.activeSpeakers,
-                participantsList = room.remoteParticipants.values + room.localParticipant,
                 room = room
             )
         }
@@ -62,10 +58,11 @@ fun rememberPrimarySpeaker(room: Room): Participant {
 
 private fun calculatePrimarySpeaker(
     previousSpeaker: Participant?,
-    activeSpeakers: List<Participant>,
-    participantsList: List<Participant>,
     room: Room
 ): Participant {
+    val activeSpeakers = room.activeSpeakers
+    val participantsList = room.remoteParticipants.values + room.localParticipant
+
     return if (previousSpeaker == null || !previousSpeaker.isSpeaking || !participantsList.contains(previousSpeaker)) {
         activeSpeakers.firstOrNull { p -> p != room.localParticipant }
             ?: participantsList.firstOrNull()

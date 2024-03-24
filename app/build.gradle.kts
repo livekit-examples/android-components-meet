@@ -5,11 +5,11 @@ plugins {
     id("kotlin-parcelize")
 }
 
-val projectSampleUrl: String? by project
-val projectDefaultToken: String? by project
+val livekitSampleUrl: String? by project
+val livekitSampleToken: String? by project
 
-fun getDefaultUrl() = projectSampleUrl ?: "ws://www.example.com"
-fun getDefaultToken() = projectDefaultToken ?: ""
+fun getDefaultUrl() = livekitSampleUrl ?: "wss://www.example.com"
+fun getDefaultToken() = livekitSampleToken ?: ""
 
 val url = getDefaultUrl()
 val token = getDefaultToken()

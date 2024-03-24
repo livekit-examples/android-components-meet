@@ -5,6 +5,9 @@ import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.preference.PreferenceManager
 
+/**
+ * ViewModel for [MainActivity].
+ */
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val preferences = PreferenceManager.getDefaultSharedPreferences(application)
