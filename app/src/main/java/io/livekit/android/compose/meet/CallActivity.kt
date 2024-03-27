@@ -98,7 +98,7 @@ class CallActivity : ComponentActivity() {
             Content(
                 url = args.url,
                 token = args.token,
-                e2eeOptions = e2eeOptions
+                e2eeOptions = e2eeOptions,
             )
         }
     }
@@ -109,7 +109,6 @@ class CallActivity : ComponentActivity() {
         token: String,
         e2eeOptions: E2EEOptions?,
     ) {
-
         // Track whether user wants their camera/mic enabled.
         var userEnabledCamera by rememberSaveable { mutableStateOf(false) }
         var userEnabledMic by rememberSaveable { mutableStateOf(false) }
@@ -134,7 +133,7 @@ class CallActivity : ComponentActivity() {
                     Timber.e(exception)
                     Toast.makeText(this@CallActivity, "Error: $exception", Toast.LENGTH_LONG).show()
                 },
-                passedRoom = null
+                passedRoom = null,
             ) { room ->
 
                 // Setup for screen capture intent launching.
@@ -149,6 +148,8 @@ class CallActivity : ComponentActivity() {
                         }
                     }
 
+                // If we ever have a valid screen capture intent, start the screen capture track.
+                // Otherwise disable it.
                 LaunchedEffect(enableScreenCapture) {
                     val intent = enableScreenCapture
 
@@ -195,12 +196,12 @@ class CallActivity : ComponentActivity() {
                     val trackReferences = rememberTracks(
                         sources = listOf(
                             Track.Source.CAMERA,
-                            Track.Source.SCREEN_SHARE
+                            Track.Source.SCREEN_SHARE,
                         ),
                         usePlaceholders = setOf(
                             Track.Source.CAMERA,
                         ),
-                        onlySubscribed = false
+                        onlySubscribed = false,
                     )
 
                     // Audience row to display all participants.
@@ -241,22 +242,20 @@ class CallActivity : ComponentActivity() {
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.Bottom,
                     ) {
-
                         val micResource =
                             if (userEnabledMic) R.drawable.outline_mic_24 else R.drawable.outline_mic_off_24
                         ControlButton(
                             resourceId = micResource,
                             contentDescription = "Mic",
-                            onClick = { userEnabledMic = !userEnabledMic }
+                            onClick = { userEnabledMic = !userEnabledMic },
                         )
-
 
                         val cameraResource =
                             if (userEnabledCamera) R.drawable.outline_videocam_24 else R.drawable.outline_videocam_off_24
                         ControlButton(
                             resourceId = cameraResource,
                             contentDescription = "Camera",
-                            onClick = { userEnabledCamera = !userEnabledCamera }
+                            onClick = { userEnabledCamera = !userEnabledCamera },
                         )
 
                         ControlButton(
@@ -271,7 +270,7 @@ class CallActivity : ComponentActivity() {
 
                                 cameraPosition = cameraPosition.flipped()
                                 cameraTrack.switchCamera(position = cameraPosition)
-                            }
+                            },
                         )
 
                         val screenShareResource =
@@ -287,27 +286,27 @@ class CallActivity : ComponentActivity() {
                                 } else {
                                     enableScreenCapture = null
                                 }
-                            }
+                            },
                         )
 
                         var showMessageDialog by rememberSaveable { mutableStateOf(false) }
                         ControlButton(
                             resourceId = R.drawable.baseline_chat_24,
                             contentDescription = "Send Message",
-                            onClick = { showMessageDialog = true }
+                            onClick = { showMessageDialog = true },
                         )
 
                         if (showMessageDialog) {
                             SendMessageDialog(
                                 onDismissRequest = { showMessageDialog = false },
-                                onSendMessage = { /* TODO */ }
+                                onSendMessage = { /* TODO */ },
                             )
                         }
 
                         ControlButton(
                             resourceId = R.drawable.ic_baseline_cancel_24,
                             contentDescription = "Disconnect",
-                            onClick = { finish() }
+                            onClick = { finish() },
                         )
                     }
                 }
@@ -322,7 +321,7 @@ class CallActivity : ComponentActivity() {
             videoTrackPublishDefaults = VideoTrackPublishDefaults(
                 videoEncoding = VideoPreset169.H720.encoding.copy(maxBitrate = 3_000_000),
                 simulcast = true,
-            )
+            ),
         )
 
         return customizer(roomOptions)
@@ -337,10 +336,10 @@ class CallActivity : ComponentActivity() {
                             AudioDevice.BluetoothHeadset::class.java,
                             AudioDevice.WiredHeadset::class.java,
                             AudioDevice.Speakerphone::class.java,
-                            AudioDevice.Earpiece::class.java
+                            AudioDevice.Earpiece::class.java,
                         )
-                    }
-            )
+                    },
+            ),
         )
 
     companion object {
