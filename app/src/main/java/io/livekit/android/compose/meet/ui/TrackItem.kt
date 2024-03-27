@@ -19,6 +19,7 @@ package io.livekit.android.compose.meet.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,10 +41,11 @@ import io.livekit.android.compose.state.rememberTrackMuted
 import io.livekit.android.compose.types.TrackReference
 import io.livekit.android.compose.ui.VideoTrackView
 import io.livekit.android.room.participant.ConnectionQuality
+import io.livekit.android.room.track.Track
 import io.livekit.android.util.flow
 
 /**
- * Widget for displaying a participant.
+ * Widget for displaying a track reference or place holder.
  */
 @Composable
 fun TrackItem(
@@ -97,7 +99,9 @@ fun TrackItem(
                     painter = painterResource(id = R.drawable.outline_videocam_off_24),
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.align(Alignment.Center),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxSize(0.3f),
                 )
             }
         }
@@ -112,8 +116,15 @@ fun TrackItem(
             },
         ) {}
 
+        // Adjust name to differentiate between camera and screen share.
+        val nameToShow = identity?.value + if (trackReference.source == Track.Source.SCREEN_SHARE) {
+            "'s screen"
+        } else {
+            ""
+        }
+
         Text(
-            text = identity?.value ?: "",
+            text = nameToShow,
             color = Color.White,
             modifier = Modifier.constrainAs(identityText) {
                 top.linkTo(identityBar.top)
@@ -131,7 +142,7 @@ fun TrackItem(
             Icon(
                 painter = painterResource(id = R.drawable.outline_mic_off_24),
                 contentDescription = "",
-                tint = Color.Red,
+                tint = Color.LightGray,
                 modifier = Modifier.constrainAs(muteIndicator) {
                     top.linkTo(identityBar.top)
                     bottom.linkTo(identityBar.bottom)
@@ -150,7 +161,10 @@ fun TrackItem(
             ConnectionQuality.UNKNOWN -> R.drawable.wifi_strength_alert_outline
         }
 
-        if (connectionQuality != ConnectionQuality.EXCELLENT && connectionQuality != ConnectionQuality.GOOD) {
+        if (connectionQuality != ConnectionQuality.EXCELLENT &&
+            connectionQuality != ConnectionQuality.GOOD &&
+            connectionQuality != ConnectionQuality.UNKNOWN
+        ) {
             Icon(
                 painter = painterResource(id = connectionIcon),
                 contentDescription = "",

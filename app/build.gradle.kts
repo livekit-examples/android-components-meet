@@ -66,6 +66,9 @@ android {
 
 dependencies {
 
+    // For local debug only, do not commit uncommented.
+    // implementation("io.livekit:livekit-android-compose-components:+")
+
     implementation(libs.livekit.lib)
     implementation(libs.livekit.components)
     implementation(libs.kotlinx.coroutines.lib)

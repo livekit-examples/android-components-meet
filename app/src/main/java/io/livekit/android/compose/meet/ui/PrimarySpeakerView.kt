@@ -16,6 +16,7 @@ fun PrimarySpeakerView(
         usePlaceholders = setOf(Track.Source.CAMERA),
     )
 
+    // Prefer screen share track.
     val trackToShow = videoTracks.firstOrNull { track -> track.source == Track.Source.SCREEN_SHARE }
         ?: videoTracks.firstOrNull { track -> track.source == Track.Source.CAMERA }
         ?: videoTracks.first()
