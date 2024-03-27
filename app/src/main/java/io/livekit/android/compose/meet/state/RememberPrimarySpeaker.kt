@@ -45,7 +45,7 @@ fun rememberPrimarySpeaker(room: Room): Participant {
     }
 
     LaunchedEffect(room) {
-        combine(room::remoteParticipants.flow, room::activeSpeakers.flow) { remoteParticipants, activeSpeakers ->
+        combine(room::remoteParticipants.flow, room::activeSpeakers.flow) { _, _ ->
             participantState = calculatePrimarySpeaker(
                 previousSpeaker = participantState,
                 room = room,

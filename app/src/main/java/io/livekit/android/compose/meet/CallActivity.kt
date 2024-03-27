@@ -148,6 +148,8 @@ class CallActivity : ComponentActivity() {
                         }
                     }
 
+                // If we ever have a valid screen capture intent, start the screen capture track.
+                // Otherwise disable it.
                 LaunchedEffect(enableScreenCapture) {
                     val intent = enableScreenCapture
 
