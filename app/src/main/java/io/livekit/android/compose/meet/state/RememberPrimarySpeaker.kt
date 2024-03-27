@@ -35,13 +35,12 @@ import kotlinx.coroutines.flow.combine
  */
 @Composable
 fun rememberPrimarySpeaker(room: Room): Participant {
-
     var participantState by remember {
         mutableStateOf(
             calculatePrimarySpeaker(
                 previousSpeaker = null,
-                room = room
-            )
+                room = room,
+            ),
         )
     }
 
@@ -49,7 +48,7 @@ fun rememberPrimarySpeaker(room: Room): Participant {
         combine(room::remoteParticipants.flow, room::activeSpeakers.flow) { remoteParticipants, activeSpeakers ->
             participantState = calculatePrimarySpeaker(
                 previousSpeaker = participantState,
-                room = room
+                room = room,
             )
         }
     }
@@ -58,7 +57,7 @@ fun rememberPrimarySpeaker(room: Room): Participant {
 
 private fun calculatePrimarySpeaker(
     previousSpeaker: Participant?,
-    room: Room
+    room: Room,
 ): Participant {
     val activeSpeakers = room.activeSpeakers
     val participantsList = room.remoteParticipants.values + room.localParticipant

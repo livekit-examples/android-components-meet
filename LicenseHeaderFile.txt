@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LiveKit, Inc.
+ * Copyright $YEAR LiveKit, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,3 @@
  * limitations under the License.
  */
 
-package io.livekit.android.compose.meet
-
-import com.github.ajalt.timberkt.Timber
-import io.livekit.android.LiveKit
-import io.livekit.android.util.LoggingLevel
-import timber.log.Timber.DebugTree
-
-class Application : android.app.Application() {
-
-    override fun onCreate() {
-        super.onCreate()
-
-        Timber.plant(DebugTree())
-
-        // Change logging level, defaults to OFF
-        LiveKit.loggingLevel = LoggingLevel.INFO
-    }
-}

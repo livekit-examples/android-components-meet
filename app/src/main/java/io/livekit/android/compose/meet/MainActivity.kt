@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
                                 token,
                                 e2eeKey,
                                 e2eeOn,
-                            )
+                            ),
                         )
                     }
                     startActivity(intent)
@@ -120,16 +120,16 @@ class MainActivity : ComponentActivity() {
             Surface(
                 color = MaterialTheme.colorScheme.background,
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxSize(),
             ) {
                 Box(
                     modifier = Modifier
-                        .verticalScroll(scrollState)
+                        .verticalScroll(scrollState),
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .padding(10.dp)
+                            .padding(10.dp),
                     ) {
                         Spacer(modifier = Modifier.height(50.dp))
                         Image(
@@ -158,7 +158,7 @@ class MainActivity : ComponentActivity() {
                                 onValueChange = { e2eeKey = it },
                                 label = { Text("E2EE Key") },
                                 modifier = Modifier.fillMaxWidth(),
-                                enabled = e2eeOn
+                                enabled = e2eeOn,
                             )
                         }
 
@@ -166,13 +166,13 @@ class MainActivity : ComponentActivity() {
                         Row(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text("Enable end-to-end encryption (E2EE)")
                             Switch(
                                 checked = e2eeOn,
                                 onCheckedChange = { e2eeOn = it },
-                                modifier = Modifier.defaultMinSize(minHeight = 100.dp)
+                                modifier = Modifier.defaultMinSize(minHeight = 100.dp),
                             )
                         }
 
