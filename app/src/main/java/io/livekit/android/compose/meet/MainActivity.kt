@@ -133,8 +133,10 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Spacer(modifier = Modifier.height(50.dp))
                         Image(
-                            painter = painterResource(id = R.drawable.banner_dark),
-                            contentDescription = "LiveKit Banner",
+                        painter = rememberAsyncImagePainter(
+            		    "https://d2xsxph8kpxj0f.cloudfront.net/310519663337232863/TBkPtscNRXmFPq7UWkMS3T/420001-files/file_000000007ca071fdb04fdc32037fe586.png-nswH7K1SnohLSWjIJHY2g"
+                        ),
+                        contentDescription = "Enxin Meeting Banner",
                         )
                         Spacer(modifier = Modifier.height(20.dp))
                         OutlinedTextField(
