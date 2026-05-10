@@ -8,7 +8,7 @@ plugins {
 val livekitSampleUrl: String? by project
 val livekitSampleToken: String? by project
 
-fun getDefaultUrl() = livekitSampleUrl ?: "wss://www.example.com"
+fun getDefaultUrl() = livekitSampleUrl ?: "wss://livekit.gracelink.cc"
 fun getDefaultToken() = livekitSampleToken ?: ""
 
 val url = getDefaultUrl()
