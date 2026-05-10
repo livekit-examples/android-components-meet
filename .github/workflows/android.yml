@@ -55,7 +55,7 @@ jobs:
         ./gradlew spotlessCheck
 
     - name: Build with Gradle
-      run: ./gradlew assembleRelease
+      run: ./gradlew assembleDebug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
