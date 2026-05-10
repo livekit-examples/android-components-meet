@@ -140,14 +140,14 @@ class MainActivity : ComponentActivity() {
                         OutlinedTextField(
                             value = url,
                             onValueChange = { url = it },
-                            label = { Text("URL") },
+                            label = { Text("服务器") },
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(modifier = Modifier.height(20.dp))
                         OutlinedTextField(
                             value = token,
                             onValueChange = { token = it },
-                            label = { Text("Token") },
+                            label = { Text("通话凭证") },
                             modifier = Modifier.fillMaxWidth(),
                         )
 
@@ -156,7 +156,7 @@ class MainActivity : ComponentActivity() {
                             OutlinedTextField(
                                 value = e2eeKey,
                                 onValueChange = { e2eeKey = it },
-                                label = { Text("E2EE Key") },
+                                label = { Text("加密密钥") },
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = e2eeOn,
                             )
@@ -168,7 +168,7 @@ class MainActivity : ComponentActivity() {
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("Enable end-to-end encryption (E2EE)")
+                            Text("启用端到端加密 (E2EE)")
                             Switch(
                                 checked = e2eeOn,
                                 onCheckedChange = { e2eeOn = it },
@@ -178,7 +178,7 @@ class MainActivity : ComponentActivity() {
 
                         Spacer(modifier = Modifier.height(20.dp))
                         Button(onClick = { onConnect(url, token, e2eeKey, e2eeOn) }) {
-                            Text("Connect")
+                            Text("加入会议")
                         }
 
                         Spacer(modifier = Modifier.height(20.dp))
@@ -189,7 +189,7 @@ class MainActivity : ComponentActivity() {
                                 token = MainViewModel.TOKEN
                             },
                         ) {
-                            Text("Reset Values")
+                            Text("重置数据")
                         }
                     }
                 }
