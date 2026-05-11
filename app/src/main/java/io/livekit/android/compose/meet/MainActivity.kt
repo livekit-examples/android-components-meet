@@ -22,64 +22,44 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.livekit.android.compose.meet.ui.theme.LKMeetAppTheme
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel by viewModels<MainViewModel>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
             MainContent(
+                // 默认从 ViewModel 读取你之前改好的私有服务器地址
                 defaultUrl = viewModel.getSavedUrl(),
                 defaultToken = viewModel.getSavedToken(),
-                defaultE2eeKey = viewModel.getSavedE2EEKey(),
-                defaultE2eeOn = viewModel.getE2EEOptionsOn(),
-                onConnect = { url, token, e2eeKey, e2eeOn ->
-                    // Save settings for future app launches.
+                onConnect = { url, token ->
+                    // 保存设置并跳转
                     viewModel.setSavedUrl(url)
                     viewModel.setSavedToken(token)
-                    viewModel.setSavedE2EEKey(e2eeKey)
-                    viewModel.setSavedE2EEOn(e2eeOn)
 
                     val intent = Intent(this@MainActivity, CallActivity::class.java).apply {
                         putExtra(
                             CallActivity.KEY_ARGS,
                             CallActivity.BundleArgs(
-                                url,
-                                token,
-                                e2eeKey,
-                                e2eeOn,
+                                url = url,
+                                token = token,
+                                e2eeKey = null,
+                                e2eeOn = false,
                             ),
                         )
                     }
@@ -87,109 +67,96 @@ class MainActivity : ComponentActivity() {
                 },
                 onReset = {
                     viewModel.reset()
-                    Toast.makeText(
-                        this@MainActivity,
-                        "凭证已重置",
-                        Toast.LENGTH_SHORT,
-                    ).show()
+                    Toast.makeText(this@MainActivity, "凭证已清空", Toast.LENGTH_SHORT).show()
                 },
             )
         }
     }
 
-    @Preview(
-        showBackground = true,
-        showSystemUi = true,
-    )
     @Composable
     fun MainContent(
-        defaultUrl: String = MainViewModel.URL,
-        defaultToken: String = MainViewModel.TOKEN,
-        defaultE2eeKey: String = MainViewModel.E2EE_KEY,
-        defaultE2eeOn: Boolean = false,
-        onConnect: (url: String, token: String, e2eeKey: String, e2eeOn: Boolean) -> Unit = { _, _, _, _ -> },
-        onReset: () -> Unit = {},
+        defaultUrl: String,
+        defaultToken: String,
+        onConnect: (url: String, token: String) -> Unit,
+        onReset: () -> Unit,
     ) {
-        LKMeetAppTheme {
+        LKMeetAppTheme(darkTheme = true) {
             var url by remember { mutableStateOf(defaultUrl) }
             var token by remember { mutableStateOf(defaultToken) }
-            var e2eeKey by remember { mutableStateOf(defaultE2eeKey) }
-            var e2eeOn by remember { mutableStateOf(defaultE2eeOn) }
             val scrollState = rememberScrollState()
-            // A surface container using the 'background' color from the theme
+
             Surface(
                 color = MaterialTheme.colorScheme.background,
-                modifier = Modifier
-                    .fillMaxSize(),
+                modifier = Modifier.fillMaxSize(),
             ) {
-                Box(
-                    modifier = Modifier
-                        .verticalScroll(scrollState),
-                ) {
+                Box(modifier = Modifier.verticalScroll(scrollState)) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .padding(10.dp),
+                            .padding(horizontal = 30.dp)
+                            .fillMaxWidth(),
                     ) {
-                        Spacer(modifier = Modifier.height(50.dp))
-                        Image(
-                            painter = painterResource(id = R.drawable.banner_dark),
-                            contentDescription = "LiveKit Banner",
+                        // 1. 顶部留白和标题（替代了原来的 Image 图标）
+                        Spacer(modifier = Modifier.height(100.dp))
+                        
+                        Text(
+                            text = "恩信共享助手",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF0A84FF), // 商务蓝
+                            letterSpacing = 2.sp
                         )
-                        Spacer(modifier = Modifier.height(20.dp))
-                        OutlinedTextField(
-                            value = url,
-                            onValueChange = { url = it },
-                            label = { Text("服务器") },
-                            modifier = Modifier.fillMaxWidth(),
+                        
+                        Text(
+                            text = "专业屏幕共享·高效协同",
+                            fontSize = 14.sp,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(top = 10.dp)
                         )
-                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Spacer(modifier = Modifier.height(80.dp))
+
+                        // 2. 核心输入框：凭证输入
                         OutlinedTextField(
                             value = token,
                             onValueChange = { token = it },
-                            label = { Text("共享凭证（从恩信获取）") },
+                            label = { Text("通话凭证") },
+                            placeholder = { Text("请粘贴共享凭证") },
                             modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.medium
                         )
 
-                        if (e2eeOn) {
-                            Spacer(modifier = Modifier.height(20.dp))
-                            OutlinedTextField(
-                                value = e2eeKey,
-                                onValueChange = { e2eeKey = it },
-                                label = { Text("加密密钥") },
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = e2eeOn,
-                            )
-                        }
+                        Spacer(modifier = Modifier.height(40.dp))
 
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("启用端到端加密 (E2EE)")
-                            Switch(
-                                checked = e2eeOn,
-                                onCheckedChange = { e2eeOn = it },
-                                modifier = Modifier.defaultMinSize(minHeight = 100.dp),
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Button(onClick = { onConnect(url, token, e2eeKey, e2eeOn) }) {
-                            Text("加入会议")
-                        }
-
-                        Spacer(modifier = Modifier.height(20.dp))
+                        // 3. 开启按钮：点击即进入
                         Button(
                             onClick = {
+                                if (token.isNotBlank()) {
+                                    onConnect(url, token)
+                                } else {
+                                    Toast.makeText(this@MainActivity, "请先输入凭证", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A84FF))
+                        ) {
+                            Text("开启共享通道", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // 4. 重置按钮：一键清空
+                        TextButton(
+                            onClick = {
                                 onReset()
-                                url = MainViewModel.URL
-                                token = MainViewModel.TOKEN
+                                token = "" // 同时也清空当前页面的输入框
                             },
                         ) {
-                            Text("重置凭证")
+                            Text("重置凭证", color = Color.Gray, fontSize = 14.sp)
                         }
                     }
                 }
