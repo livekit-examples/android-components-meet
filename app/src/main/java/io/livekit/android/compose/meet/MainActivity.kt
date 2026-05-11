@@ -89,7 +89,7 @@ class MainActivity : ComponentActivity() {
                     viewModel.reset()
                     Toast.makeText(
                         this@MainActivity,
-                        "Values reset.",
+                        "凭证已重置",
                         Toast.LENGTH_SHORT,
                     ).show()
                 },
@@ -147,7 +147,7 @@ class MainActivity : ComponentActivity() {
                         OutlinedTextField(
                             value = token,
                             onValueChange = { token = it },
-                            label = { Text("通话凭证（从恩信获取）") },
+                            label = { Text("共享凭证（从恩信获取）") },
                             modifier = Modifier.fillMaxWidth(),
                         )
 
@@ -189,7 +189,7 @@ class MainActivity : ComponentActivity() {
                                 token = MainViewModel.TOKEN
                             },
                         ) {
-                            Text("重置数据")
+                            Text("重置凭证")
                         }
                     }
                 }
