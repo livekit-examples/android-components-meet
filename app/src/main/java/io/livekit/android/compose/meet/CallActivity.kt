@@ -160,7 +160,7 @@ class CallActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = if (enableScreenCapture == null)
-                                "连接成功\n请点击下方按钮开启屏幕共享"
+                                "连接完毕\n请点击下方按钮开启屏幕共享"
                                 else "正在共享屏幕中\n您的画面已实时同步至会议",
                             fontSize = 16.sp,
                             color = Color.LightGray,
