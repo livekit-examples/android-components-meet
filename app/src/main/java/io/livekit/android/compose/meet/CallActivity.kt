@@ -29,25 +29,18 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.constraintlayout.compose.Dimension
 import com.github.ajalt.timberkt.Timber
@@ -57,21 +50,10 @@ import io.livekit.android.LiveKitOverrides
 import io.livekit.android.RoomOptions
 import io.livekit.android.audio.AudioSwitchHandler
 import io.livekit.android.compose.local.RoomScope
-import io.livekit.android.compose.meet.state.rememberEnableCamera
-import io.livekit.android.compose.meet.state.rememberEnableMic
-import io.livekit.android.compose.meet.state.rememberPrimarySpeaker
 import io.livekit.android.compose.meet.ui.ControlButton
-import io.livekit.android.compose.meet.ui.PrimarySpeakerView
-import io.livekit.android.compose.meet.ui.SendMessageDialog
-import io.livekit.android.compose.meet.ui.TrackItem
 import io.livekit.android.compose.meet.ui.theme.LKMeetAppTheme
-import io.livekit.android.compose.state.rememberTracks
-import io.livekit.android.compose.ui.flipped
 import io.livekit.android.e2ee.E2EEOptions
 import io.livekit.android.room.participant.VideoTrackPublishDefaults
-import io.livekit.android.room.track.CameraPosition
-import io.livekit.android.room.track.LocalVideoTrack
-import io.livekit.android.room.track.Track
 import io.livekit.android.room.track.VideoPreset169
 import kotlinx.parcelize.Parcelize
 
@@ -79,21 +61,16 @@ class CallActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 保持屏幕常亮
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val args = intent.getParcelableExtra<BundleArgs>(KEY_ARGS)
             ?: throw NullPointerException("args is null!")
 
-        val e2eeOptions =
-            if (args.e2eeOn && !args.e2eeKey.isNullOrEmpty()) {
-                E2EEOptions().apply {
-                    this.keyProvider.setSharedKey(args.e2eeKey)
-                }
-            } else {
-                null
-            }
+        val e2eeOptions = if (args.e2eeOn && !args.e2eeKey.isNullOrEmpty()) {
+            E2EEOptions().apply { this.keyProvider.setSharedKey(args.e2eeKey) }
+        } else null
 
-        // Setup compose view.
         setContent {
             Content(
                 url = args.url,
@@ -109,57 +86,41 @@ class CallActivity : ComponentActivity() {
         token: String,
         e2eeOptions: E2EEOptions?,
     ) {
-        // Track whether user wants their camera/mic enabled.
-        var userEnabledCamera by rememberSaveable { mutableStateOf(false) }
-        var userEnabledMic by rememberSaveable { mutableStateOf(false) }
-
-        val enableCamera = rememberEnableCamera(enabled = userEnabledCamera)
-        val enableMic = rememberEnableMic(enabled = userEnabledMic)
-
-        // Screen capture requires an intent to start.
+        // 核心逻辑：默认不开启摄像头和麦克风
         var enableScreenCapture by remember { mutableStateOf<Intent?>(null) }
 
-        var cameraPosition by remember { mutableStateOf(CameraPosition.FRONT) }
         LKMeetAppTheme(darkTheme = true) {
             RoomScope(
                 url = url,
                 token = token,
-                audio = enableMic,
-                video = enableCamera,
+                audio = false, // 强制关闭音频
+                video = false, // 强制关闭视频
                 connect = true,
-                roomOptions = defaultRoomOptions { roomOptions -> roomOptions.copy(e2eeOptions = e2eeOptions) },
+                roomOptions = defaultRoomOptions { it.copy(e2eeOptions = e2eeOptions) },
                 liveKitOverrides = DefaultLKOverrides(this),
                 onError = { _, exception ->
                     Timber.e(exception)
-                    Toast.makeText(this@CallActivity, "Error: $exception", Toast.LENGTH_LONG).show()
-                },
-                passedRoom = null,
+                    Toast.makeText(this@CallActivity, "连接失败: $exception", Toast.LENGTH_LONG).show()
+                }
             ) { room ->
 
-                // Setup for screen capture intent launching.
-                val screenCaptureLauncher =
-                    rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult()) { result ->
-                        val resultCode = result.resultCode
-                        val data = result.data
-                        if (resultCode != Activity.RESULT_OK || data == null) {
-                            enableScreenCapture = null
-                        } else {
-                            enableScreenCapture = data
-                        }
+                // 屏幕采集授权处理器
+                val screenCaptureLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.StartActivityForResult()
+                ) { result ->
+                    if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+                        enableScreenCapture = result.data
+                    } else {
+                        enableScreenCapture = null
                     }
+                }
 
-                // If we ever have a valid screen capture intent, start the screen capture track.
-                // Otherwise disable it.
+                // 屏幕共享推流逻辑
                 LaunchedEffect(enableScreenCapture) {
                     val intent = enableScreenCapture
-
                     if (intent != null) {
                         val screencastTrack = room.localParticipant.createScreencastTrack(mediaProjectionPermissionResultData = intent)
-                        room.localParticipant.publishVideoTrack(
-                            screencastTrack,
-                        )
-
-                        // Must start a foreground service prior to startCapture.
+                        room.localParticipant.publishVideoTrack(screencastTrack)
                         screencastTrack.startForegroundService(null, null)
                         screencastTrack.startCapture()
                     } else {
@@ -167,146 +128,80 @@ class CallActivity : ComponentActivity() {
                     }
                 }
 
-                // Layout for the content
+                // UI 布局开始
                 ConstraintLayout(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background),
+                        .background(Color(0xFF111111)), // 深黑色背景更显高级
                 ) {
-                    val (speakerView, audienceRow, buttonBar) = createRefs()
+                    val (infoArea, buttonBar) = createRefs()
 
-                    // Primary speaker view
-                    val primarySpeaker = rememberPrimarySpeaker(room = room)
-                    PrimarySpeakerView(
-                        participant = primarySpeaker,
-
-                        modifier = Modifier.constrainAs(speakerView) {
-                            top.linkTo(parent.top)
-                            start.linkTo(parent.start)
-                            end.linkTo(parent.end)
-                            bottom.linkTo(audienceRow.top)
-                            width = Dimension.fillToConstraints
-                            height = Dimension.fillToConstraints
-                        },
-                    )
-
-                    // Get all the video tracks for the room.
-                    // Include a placeholder for the camera track, so that
-                    // everyone has a visual representation.
-                    val trackReferences = rememberTracks(
-                        sources = listOf(
-                            Track.Source.CAMERA,
-                            Track.Source.SCREEN_SHARE,
-                        ),
-                        usePlaceholders = setOf(
-                            Track.Source.CAMERA,
-                        ),
-                        onlySubscribed = false,
-                    )
-
-                    // Audience row to display all participants.
-                    LazyRow(
+                    // 中间文字提示区域
+                    Column(
                         modifier = Modifier
-                            .constrainAs(audienceRow) {
-                                top.linkTo(speakerView.bottom)
+                            .fillMaxWidth()
+                            .padding(horizontal = 40.dp)
+                            .constrainAs(infoArea) {
+                                top.linkTo(parent.top)
                                 bottom.linkTo(buttonBar.top)
                                 start.linkTo(parent.start)
                                 end.linkTo(parent.end)
-                                width = Dimension.fillToConstraints
-                                height = Dimension.value(120.dp)
                             },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        items(
-                            count = trackReferences.size,
-                            key = { index -> trackReferences[index].participant.sid.value + trackReferences[index].source },
-                        ) { index ->
-                            TrackItem(
-                                trackReference = trackReferences[index],
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .aspectRatio(1.0f, true),
-                            )
-                        }
+                        Text(
+                            text = "恩信共享助手",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0A84FF),
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = if (enableScreenCapture == null)
+                                "连接成功\n请点击下方按钮开启屏幕共享"
+                                else "正在共享屏幕中\n您的画面已实时同步至会议",
+                            fontSize = 16.sp,
+                            color = Color.LightGray,
+                            lineHeight = 24.sp,
+                            textAlign = TextAlign.Center
+                        )
                     }
 
-                    // Control bar for any switches such as mic/camera enable/disable.
+                    // 底部控制栏：只保留两个按钮
                     Row(
                         modifier = Modifier
-                            .padding(top = 10.dp, bottom = 20.dp)
+                            .padding(bottom = 50.dp)
                             .fillMaxWidth()
                             .constrainAs(buttonBar) {
                                 bottom.linkTo(parent.bottom)
-                                width = Dimension.fillToConstraints
-                                height = Dimension.wrapContent
                             },
                         horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.Bottom,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val micResource =
-                            if (userEnabledMic) R.drawable.outline_mic_24 else R.drawable.outline_mic_off_24
-                        ControlButton(
-                            resourceId = micResource,
-                            contentDescription = "Mic",
-                            onClick = { userEnabledMic = !userEnabledMic },
-                        )
-
-                        val cameraResource =
-                            if (userEnabledCamera) R.drawable.outline_videocam_24 else R.drawable.outline_videocam_off_24
-                        ControlButton(
-                            resourceId = cameraResource,
-                            contentDescription = "Camera",
-                            onClick = { userEnabledCamera = !userEnabledCamera },
-                        )
-
-                        ControlButton(
-                            resourceId = R.drawable.outline_flip_camera_android_24,
-                            contentDescription = "Flip Camera",
-                            onClick = {
-                                val cameraTrack =
-                                    room.localParticipant
-                                        .getTrackPublication(Track.Source.CAMERA)
-                                        ?.track as? LocalVideoTrack
-                                        ?: return@ControlButton
-
-                                cameraPosition = cameraPosition.flipped()
-                                cameraTrack.switchCamera(position = cameraPosition)
-                            },
-                        )
-
-                        val screenShareResource =
-                            if (enableScreenCapture != null) R.drawable.baseline_cast_connected_24 else R.drawable.baseline_cast_24
+                        // 1. 屏幕共享按钮
+                        val screenShareResource = if (enableScreenCapture != null)
+                            R.drawable.baseline_cast_connected_24 else R.drawable.baseline_cast_24
+                        
                         ControlButton(
                             resourceId = screenShareResource,
-                            contentDescription = "Screen Share",
+                            contentDescription = "Toggle Screen Share",
                             onClick = {
                                 if (enableScreenCapture == null) {
-                                    val mediaProjectionManager =
-                                        getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                                    val mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
                                     screenCaptureLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
                                 } else {
                                     enableScreenCapture = null
                                 }
-                            },
+                            }
                         )
 
-                        var showMessageDialog by rememberSaveable { mutableStateOf(false) }
-                        ControlButton(
-                            resourceId = R.drawable.baseline_chat_24,
-                            contentDescription = "Send Message",
-                            onClick = { showMessageDialog = true },
-                        )
-
-                        if (showMessageDialog) {
-                            SendMessageDialog(
-                                onDismissRequest = { showMessageDialog = false },
-                                onSendMessage = { /* TODO */ },
-                            )
-                        }
-
+                        // 2. 退出按钮
                         ControlButton(
                             resourceId = R.drawable.ic_baseline_cancel_24,
                             contentDescription = "Disconnect",
-                            onClick = { finish() },
+                            onClick = { finish() }
                         )
                     }
                 }
@@ -315,32 +210,27 @@ class CallActivity : ComponentActivity() {
     }
 
     private fun defaultRoomOptions(customizer: (RoomOptions) -> RoomOptions): RoomOptions {
-        val roomOptions = RoomOptions(
+        return customizer(RoomOptions(
             adaptiveStream = true,
             dynacast = true,
             videoTrackPublishDefaults = VideoTrackPublishDefaults(
                 videoEncoding = VideoPreset169.H720.encoding.copy(maxBitrate = 3_000_000),
                 simulcast = true,
             ),
-        )
-
-        return customizer(roomOptions)
+        ))
     }
 
-    private fun DefaultLKOverrides(context: Context) =
-        LiveKitOverrides(
-            audioOptions = AudioOptions(
-                audioHandler = AudioSwitchHandler(context)
-                    .apply {
-                        preferredDeviceList = listOf(
-                            AudioDevice.BluetoothHeadset::class.java,
-                            AudioDevice.WiredHeadset::class.java,
-                            AudioDevice.Speakerphone::class.java,
-                            AudioDevice.Earpiece::class.java,
-                        )
-                    },
-            ),
+    private fun DefaultLKOverrides(context: Context) = LiveKitOverrides(
+        audioOptions = AudioOptions(
+            audioHandler = AudioSwitchHandler(context).apply {
+                preferredDeviceList = listOf(
+                    AudioDevice.BluetoothHeadset::class.java,
+                    AudioDevice.WiredHeadset::class.java,
+                    AudioDevice.Speakerphone::class.java
+                )
+            }
         )
+    )
 
     companion object {
         const val KEY_ARGS = "args"
