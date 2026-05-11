@@ -144,7 +144,7 @@ class MainActivity : ComponentActivity() {
                             shape = MaterialTheme.shapes.medium,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A84FF))
                         ) {
-                            Text("开启共享通道", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("发起共享请求", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
 
                         Spacer(modifier = Modifier.height(20.dp))
