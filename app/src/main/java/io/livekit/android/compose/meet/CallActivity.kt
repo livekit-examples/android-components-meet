@@ -61,7 +61,6 @@ class CallActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 保持屏幕常亮
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val args = intent.getParcelableExtra<BundleArgs>(KEY_ARGS)
@@ -86,15 +85,14 @@ class CallActivity : ComponentActivity() {
         token: String,
         e2eeOptions: E2EEOptions?,
     ) {
-        // 核心逻辑：默认不开启摄像头和麦克风
         var enableScreenCapture by remember { mutableStateOf<Intent?>(null) }
 
         LKMeetAppTheme(darkTheme = true) {
             RoomScope(
                 url = url,
                 token = token,
-                audio = false, // 强制关闭音频
-                video = false, // 强制关闭视频
+                audio = false,
+                video = false,
                 connect = true,
                 roomOptions = defaultRoomOptions { it.copy(e2eeOptions = e2eeOptions) },
                 liveKitOverrides = DefaultLKOverrides(this),
@@ -104,7 +102,6 @@ class CallActivity : ComponentActivity() {
                 }
             ) { room ->
 
-                // 屏幕采集授权处理器
                 val screenCaptureLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.StartActivityForResult()
                 ) { result ->
@@ -115,7 +112,6 @@ class CallActivity : ComponentActivity() {
                     }
                 }
 
-                // 屏幕共享推流逻辑
                 LaunchedEffect(enableScreenCapture) {
                     val intent = enableScreenCapture
                     if (intent != null) {
@@ -128,15 +124,13 @@ class CallActivity : ComponentActivity() {
                     }
                 }
 
-                // UI 布局开始
                 ConstraintLayout(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color(0xFF111111)), // 深黑色背景更显高级
+                        .background(Color(0xFF111111)),
                 ) {
                     val (infoArea, buttonBar) = createRefs()
 
-                    // 中间文字提示区域
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -169,7 +163,6 @@ class CallActivity : ComponentActivity() {
                         )
                     }
 
-                    // 底部控制栏：只保留两个按钮
                     Row(
                         modifier = Modifier
                             .padding(bottom = 50.dp)
@@ -180,7 +173,6 @@ class CallActivity : ComponentActivity() {
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 1. 屏幕共享按钮
                         val screenShareResource = if (enableScreenCapture != null)
                             R.drawable.baseline_cast_connected_24 else R.drawable.baseline_cast_24
                         
@@ -197,7 +189,6 @@ class CallActivity : ComponentActivity() {
                             }
                         )
 
-                        // 2. 退出按钮
                         ControlButton(
                             resourceId = R.drawable.ic_baseline_cancel_24,
                             contentDescription = "Disconnect",
@@ -210,6 +201,7 @@ class CallActivity : ComponentActivity() {
     }
 
     private fun defaultRoomOptions(customizer: (RoomOptions) -> RoomOptions): RoomOptions {
+        // 这里还原，不改任何结构
         return customizer(RoomOptions(
             adaptiveStream = true,
             dynacast = true,
@@ -222,6 +214,9 @@ class CallActivity : ComponentActivity() {
 
     private fun DefaultLKOverrides(context: Context) = LiveKitOverrides(
         audioOptions = AudioOptions(
+            // 【关键修改点】关闭音频播放。
+            // playAudio 设为 false，SDK 内部将不会把收到的音频流路由到扬声器。
+            playAudio = false,
             audioHandler = AudioSwitchHandler(context).apply {
                 preferredDeviceList = listOf(
                     AudioDevice.BluetoothHeadset::class.java,
