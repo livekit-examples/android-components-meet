@@ -61,6 +61,7 @@ class CallActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 保持屏幕常亮
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val args = intent.getParcelableExtra<BundleArgs>(KEY_ARGS)
@@ -85,14 +86,15 @@ class CallActivity : ComponentActivity() {
         token: String,
         e2eeOptions: E2EEOptions?,
     ) {
+        // 核心逻辑：默认不开启摄像头和麦克风
         var enableScreenCapture by remember { mutableStateOf<Intent?>(null) }
 
         LKMeetAppTheme(darkTheme = true) {
             RoomScope(
                 url = url,
                 token = token,
-                audio = false,
-                video = false,
+                audio = false, // 强制关闭本地音频采集
+                video = false, // 强制关闭本地视频采集
                 connect = true,
                 roomOptions = defaultRoomOptions { it.copy(e2eeOptions = e2eeOptions) },
                 liveKitOverrides = DefaultLKOverrides(this),
@@ -102,6 +104,17 @@ class CallActivity : ComponentActivity() {
                 }
             ) { room ->
 
+                // --- 唯一新增逻辑：屏蔽所有远程声音 ---
+                // 在进入房间后，直接将房间的远程音频输出设为静音
+                LaunchedEffect(room) {
+                    // 这种方式兼容性最好，直接操作运行时对象
+                    room.remoteParticipants.values.forEach { participant ->
+                        participant.audioTracks.forEach { it.first.setEnabled(false) }
+                    }
+                }
+                // ---------------------------------
+
+                // 屏幕采集授权处理器
                 val screenCaptureLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.StartActivityForResult()
                 ) { result ->
@@ -112,6 +125,7 @@ class CallActivity : ComponentActivity() {
                     }
                 }
 
+                // 屏幕共享推流逻辑
                 LaunchedEffect(enableScreenCapture) {
                     val intent = enableScreenCapture
                     if (intent != null) {
@@ -124,6 +138,7 @@ class CallActivity : ComponentActivity() {
                     }
                 }
 
+                // UI 布局开始
                 ConstraintLayout(
                     modifier = Modifier
                         .fillMaxSize()
@@ -131,6 +146,7 @@ class CallActivity : ComponentActivity() {
                 ) {
                     val (infoArea, buttonBar) = createRefs()
 
+                    // 中间文字提示区域
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -163,6 +179,7 @@ class CallActivity : ComponentActivity() {
                         )
                     }
 
+                    // 底部控制栏
                     Row(
                         modifier = Modifier
                             .padding(bottom = 50.dp)
@@ -213,9 +230,12 @@ class CallActivity : ComponentActivity() {
 
     private fun DefaultLKOverrides(context: Context) = LiveKitOverrides(
         audioOptions = AudioOptions(
-            // 我们通过将设备列表设为空，从逻辑上让 SDK 找不到输出设备，从而实现无声
             audioHandler = AudioSwitchHandler(context).apply {
-                preferredDeviceList = emptyList() // 清空设备列表
+                preferredDeviceList = listOf(
+                    AudioDevice.BluetoothHeadset::class.java,
+                    AudioDevice.WiredHeadset::class.java,
+                    AudioDevice.Speakerphone::class.java
+                )
             }
         )
     )
