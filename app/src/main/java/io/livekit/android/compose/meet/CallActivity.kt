@@ -28,25 +28,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -95,26 +83,15 @@ class CallActivity : ComponentActivity() {
         var enableScreenCapture by remember { mutableStateOf<Intent?>(null) }
         val isSharing = enableScreenCapture != null
 
-        // 呼吸灯动画逻辑：用于增强状态感知
-        val infiniteTransition = rememberInfiniteTransition(label = "sharing")
-        val breatheAlpha by infiniteTransition.animateFloat(
-            initialValue = 0.3f,
-            targetValue = 0.9f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1200, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ), label = "alpha"
-        )
-
         LKMeetAppTheme(darkTheme = true) {
             RoomScope(
                 url = url,
                 token = token,
-                audio = false, // 不发声
-                video = false, // 不开摄
+                audio = false,
+                video = false,
                 connect = true,
                 roomOptions = defaultRoomOptions { it.copy(e2eeOptions = e2eeOptions) },
-                liveKitOverrides = DefaultLKOverrides(), // 释放音频焦点
+                liveKitOverrides = DefaultLKOverrides(), // 内部已改为不处理音频
                 onError = { _, exception ->
                     Timber.e(exception)
                     Toast.makeText(this@CallActivity, "连接失败: $exception", Toast.LENGTH_LONG).show()
@@ -141,189 +118,110 @@ class CallActivity : ComponentActivity() {
                     }
                 }
 
-                // --- 升级后的 UI 布局 ---
+                // UI 布局：仅使用你原本就有的组件
                 ConstraintLayout(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color(0xFF050505)), // 更纯净的深黑
+                        .background(if (isSharing) Color(0xFF001529) else Color(0xFF111111)),
                 ) {
-                    val (topGradient, infoArea, buttonBar, statusBadge) = createRefs()
+                    val (infoArea, buttonBar) = createRefs()
 
-                    // 1. 顶部状态流光：共享时出现，极具视觉冲击力
-                    if (isSharing) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp)
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(Color(0xFF0A84FF).copy(alpha = 0.15f), Color.Transparent)
-                                    )
-                                )
-                                .constrainAs(topGradient) { top.linkTo(parent.top) }
-                        )
-                    }
-
-                    // 2. 状态勋章 (Status Badge)
-                    Surface(
-                        color = if (isSharing) Color(0xFF0A84FF).copy(alpha = 0.2f) else Color(0xFF1E1E1E),
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier
-                            .padding(top = 50.dp)
-                            .constrainAs(statusBadge) {
-                                top.linkTo(parent.top)
-                                centerHorizontallyTo(parent)
-                            }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // 动态呼吸小圆点
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(
-                                        color = if (isSharing) Color(0xFF00FF00).copy(alpha = breatheAlpha) else Color.Gray,
-                                        shape = CircleShape
-                                    )
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = if (isSharing) "LIVE | 正在共享屏幕" else "待命状态",
-                                color = if (isSharing) Color.White else Color.Gray,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-
-                    // 3. 中间核心展示区
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .padding(horizontal = 40.dp)
                             .constrainAs(infoArea) {
                                 top.linkTo(parent.top)
-                                bottom.linkTo(parent.bottom)
+                                bottom.linkTo(buttonBar.top)
                             },
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // 科技感中心图标
-                        Box(contentAlignment = Alignment.Center) {
-                            if (isSharing) {
-                                // 扩散波纹效果
-                                Canvas(modifier = Modifier.size(150.dp)) {
-                                    drawCircle(color = Color(0xFF0A84FF), radius = 100f * breatheAlpha, alpha = 0.5f - (breatheAlpha * 0.5f))
+                        // 状态标题：开启后变大、加粗、变色
+                        Text(
+                            text = if (isSharing) "正在实时共享屏幕" else "恩信共享助手",
+                            fontSize = if (isSharing) 30.sp else 24.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (isSharing) Color(0xFF00FF00) else Color(0xFF0A84FF),
+                            textAlign = TextAlign.Center
+                        )
+                        
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // 提示文字：增加对比度
+                        Text(
+                            text = if (isSharing)
+                                "【注意】共享已开启\n画面正在同步至会议\n助手已自动开启回音处理"
+                                else "连接完毕\n请点击下方按钮开启屏幕共享",
+                            fontSize = 16.sp,
+                            color = if (isSharing) Color.White else Color.LightGray,
+                            lineHeight = 26.sp,
+                            textAlign = TextAlign.Center,
+                            fontWeight = if (isSharing) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+
+                    // 底部控制栏：保持原样，只改动按钮逻辑
+                    Row(
+                        modifier = Modifier
+                            .padding(bottom = 60.dp)
+                            .fillMaxWidth()
+                            .constrainAs(buttonBar) {
+                                bottom.linkTo(parent.bottom)
+                            },
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ControlButton(
+                            resourceId = if (isSharing) R.drawable.baseline_cast_connected_24 else R.drawable.baseline_cast_24,
+                            contentDescription = "Share",
+                            onClick = {
+                                if (!isSharing) {
+                                    val mm = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                                    screenCaptureLauncher.launch(mm.createScreenCaptureIntent())
+                                } else {
+                                    enableScreenCapture = null
                                 }
                             }
-                            Icon(
-                                painter = painterResource(id = if (isSharing) R.drawable.baseline_cast_connected_24 else R.drawable.baseline_cast_24),
-                                contentDescription = null,
-                                modifier = Modifier.size(80.dp),
-                                tint = if (isSharing) Color(0xFF0A84FF) else Color(0xFF333333)
-                            )
-                        }
+                        )
 
-                        Spacer(modifier = Modifier.height(40.dp))
+                        ControlButton(
+                            resourceId = R.drawable.ic_baseline_cancel_24,
+                            contentDescription = "Exit",
+                            onClick = { finish() }
+                        )
+                    }
+                }
+            }
+        }
+    }
 
-                        // 状态大文字：增加发光和粗体
-                        Text(
-                            text = "恩信共享助手",
-                            style = TextStyle(
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.Black,
-                                color = Color.White,
-                                shadow = if (isSharing) Shadow(color = Color(0xFF0A84FF), blurRadius = 30f) else null,
-                                letterSpacing = 2.sp
-                            )
-                        )
+    private fun defaultRoomOptions(customizer: (RoomOptions) -> RoomOptions): RoomOptions {
+        return customizer(RoomOptions(
+            autoSubscribe = false, // 核心逻辑：不听别人说话，解决回音
+            adaptiveStream = false,
+            dynacast = true,
+            videoTrackPublishDefaults = VideoTrackPublishDefaults(
+                videoEncoding = VideoPreset169.H720.encoding.copy(maxBitrate = 3_000_000),
+                simulcast = true,
+            ),
+        ))
+    }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+    private fun DefaultLKOverrides() = LiveKitOverrides(
+        audioOptions = AudioOptions(
+            audioHandler = null // 核心逻辑：不抢音频焦点
+        )
+    )
 
-                        Text(
-                            text = if (isSharing) "您的屏幕内容已实时同步至会议\n助手已自动屏蔽下行声音以消除回音"
-                                   else "连接成功，音频下行已关闭\n请点击下方按钮启动共享",
-                            fontSize = 14.sp,
-                            color = Color(0xFF888888),
-                            textAlign = TextAlign.Center,
-                            lineHeight = 22.sp
-                        )
-                    }
+    companion object {
+        const val KEY_ARGS = "args"
+    }
 
-                    // 4. 底部毛玻璃悬浮控制栏
-                    Surface(
-                        modifier = Modifier
-                            .padding(bottom = 50.dp, start = 40.dp, end = 40.dp)
-                            .fillMaxWidth()
-                            .height(100.dp)
-                            .constrainAs(buttonBar) { bottom.linkTo(parent.bottom) },
-                        shape = RoundedCornerShape(30.dp),
-                        color = Color(0xFF1A1A1A).copy(alpha = 0.9f),
-                        tonalElevation = 12.dp
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            ControlButton(
-                                resourceId = if (isSharing) R.drawable.baseline_cast_connected_24 else R.drawable.baseline_cast_24,
-                                contentDescription = "Toggle",
-                                onClick = {
-                                    if (!isSharing) {
-                                        val mm = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                                        screenCaptureLauncher.launch(mm.createScreenCaptureIntent())
-                                    } else {
-                                        enableScreenCapture = null
-                                    }
-                                }
-                            )
-
-                            // 装饰性的分割线
-                            Box(Modifier.width(1.dp).height(30.dp).background(Color(0xFF333333)))
-
-                            ControlButton(
-                                resourceId = R.drawable.ic_baseline_cancel_24,
-                                contentDescription = "Exit",
-                                onClick = { finish() }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // --- 底层逻辑配置 ---
-
-    private fun defaultRoomOptions(customizer: (RoomOptions) -> RoomOptions): RoomOptions {
-        return customizer(RoomOptions(
-            autoSubscribe = false, // 【关键】彻底解决回音：不订阅任何人的声音
-            adaptiveStream = false, // 既然不看画面，关掉下行自适应流
-            dynacast = true,
-            videoTrackPublishDefaults = VideoTrackPublishDefaults(
-                videoEncoding = VideoPreset169.H720.encoding.copy(maxBitrate = 3_000_000),
-                simulcast = true,
-            ),
-        ))
-    }
-
-    private fun DefaultLKOverrides() = LiveKitOverrides(
-        audioOptions = AudioOptions(
-            // 【关键】释放音频焦点：不设置音频处理器，让主 App 独占麦克风/扬声器
-            audioHandler = null
-        )
-    )
-
-    companion object {
-        const val KEY_ARGS = "args"
-    }
-
-    @Parcelize
-    data class BundleArgs(
-        val url: String,
-        val token: String,
-        val e2eeKey: String?,
-        val e2eeOn: Boolean,
-    ) : Parcelable
+    @Parcelize
+    data class BundleArgs(
+        val url: String,
+        val token: String,
+        val e2eeKey: String?,
+        val e2eeOn: Boolean,
+    ) : Parcelable
 }
