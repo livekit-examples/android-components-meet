@@ -93,8 +93,8 @@ class CallActivity : ComponentActivity() {
             RoomScope(
                 url = url,
                 token = token,
-                audio = false, // 强制关闭音频采集（不发声）
-                video = false, // 强制关闭视频采集
+                audio = false, // 强制关闭音频
+                video = false, // 强制关闭视频
                 connect = true,
                 roomOptions = defaultRoomOptions { it.copy(e2eeOptions = e2eeOptions) },
                 liveKitOverrides = DefaultLKOverrides(this),
@@ -132,7 +132,7 @@ class CallActivity : ComponentActivity() {
                 ConstraintLayout(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color(0xFF111111)),
+                        .background(Color(0xFF111111)), // 深黑色背景更显高级
                 ) {
                     val (infoArea, buttonBar) = createRefs()
 
@@ -169,7 +169,7 @@ class CallActivity : ComponentActivity() {
                         )
                     }
 
-                    // 底部控制栏
+                    // 底部控制栏：只保留两个按钮
                     Row(
                         modifier = Modifier
                             .padding(bottom = 50.dp)
@@ -180,6 +180,7 @@ class CallActivity : ComponentActivity() {
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // 1. 屏幕共享按钮
                         val screenShareResource = if (enableScreenCapture != null)
                             R.drawable.baseline_cast_connected_24 else R.drawable.baseline_cast_24
                         
@@ -196,6 +197,7 @@ class CallActivity : ComponentActivity() {
                             }
                         )
 
+                        // 2. 退出按钮
                         ControlButton(
                             resourceId = R.drawable.ic_baseline_cancel_24,
                             contentDescription = "Disconnect",
@@ -211,11 +213,6 @@ class CallActivity : ComponentActivity() {
         return customizer(RoomOptions(
             adaptiveStream = true,
             dynacast = true,
-            // 【核心修改点】
-            // 1. 禁用音频输出辅助工厂，SDK 将无法创建播放器实例
-            audioOutputHelperFactory = null,
-            // 2. 将音频订阅默认关闭（可选，但双重保险）
-            audioTrackCaptureDefaults = null,
             videoTrackPublishDefaults = VideoTrackPublishDefaults(
                 videoEncoding = VideoPreset169.H720.encoding.copy(maxBitrate = 3_000_000),
                 simulcast = true,
