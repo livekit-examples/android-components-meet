@@ -59,196 +59,191 @@ import kotlinx.parcelize.Parcelize
 
 class CallActivity : ComponentActivity() {
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        // 保持屏幕常亮
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // 保持屏幕常亮
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        val args = intent.getParcelableExtra<BundleArgs>(KEY_ARGS)
-            ?: throw NullPointerException("args is null!")
+        val args = intent.getParcelableExtra<BundleArgs>(KEY_ARGS)
+            ?: throw NullPointerException("args is null!")
 
-        val e2eeOptions = if (args.e2eeOn && !args.e2eeKey.isNullOrEmpty()) {
-            E2EEOptions().apply { this.keyProvider.setSharedKey(args.e2eeKey) }
-        } else null
+        val e2eeOptions = if (args.e2eeOn && !args.e2eeKey.isNullOrEmpty()) {
+            E2EEOptions().apply { this.keyProvider.setSharedKey(args.e2eeKey) }
+        } else null
 
-        setContent {
-            Content(
-                url = args.url,
-                token = args.token,
-                e2eeOptions = e2eeOptions,
-            )
-        }
-    }
+        setContent {
+            Content(
+                url = args.url,
+                token = args.token,
+                e2eeOptions = e2eeOptions,
+            )
+        }
+    }
 
-    @Composable
-    fun Content(
-        url: String,
-        token: String,
-        e2eeOptions: E2EEOptions?,
-    ) {
-        // 状态追踪
-        var enableScreenCapture by remember { mutableStateOf<Intent?>(null) }
-        val isSharing = enableScreenCapture != null
+    @Composable
+    fun Content(
+        url: String,
+        token: String,
+        e2eeOptions: E2EEOptions?,
+    ) {
+        // 核心逻辑：默认不开启摄像头和麦克风
+        var enableScreenCapture by remember { mutableStateOf<Intent?>(null) }
 
-        LKMeetAppTheme(darkTheme = true) {
-            RoomScope(
-                url = url,
-                token = token,
-                audio = false, // 默认不开启麦克风推流
-                video = false, // 默认不开启摄像头推流
-                connect = true,
-                roomOptions = defaultRoomOptions { it.copy(e2eeOptions = e2eeOptions) },
-                liveKitOverrides = DefaultLKOverrides(this),
-                onError = { _, exception ->
-                    Timber.e(exception)
-                    Toast.makeText(this@CallActivity, "连接失败: $exception", Toast.LENGTH_LONG).show()
-                }
-            ) { room ->
+        LKMeetAppTheme(darkTheme = true) {
+            RoomScope(
+                url = url,
+                token = token,
+                audio = false, // 强制关闭音频采集（不发声）
+                video = false, // 强制关闭视频采集
+                connect = true,
+                roomOptions = defaultRoomOptions { it.copy(e2eeOptions = e2eeOptions) },
+                liveKitOverrides = DefaultLKOverrides(this),
+                onError = { _, exception ->
+                    Timber.e(exception)
+                    Toast.makeText(this@CallActivity, "连接失败: $exception", Toast.LENGTH_LONG).show()
+                }
+            ) { room ->
 
-                // 屏幕采集授权处理器
-                val screenCaptureLauncher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.StartActivityForResult()
-                ) { result ->
-                    if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-                        enableScreenCapture = result.data
-                    } else {
-                        enableScreenCapture = null
-                    }
-                }
+                // 屏幕采集授权处理器
+                val screenCaptureLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.StartActivityForResult()
+                ) { result ->
+                    if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+                        enableScreenCapture = result.data
+                    } else {
+                        enableScreenCapture = null
+                    }
+                }
 
-                // 屏幕共享推流逻辑
-                LaunchedEffect(enableScreenCapture) {
-                    val intent = enableScreenCapture
-                    if (intent != null) {
-                        val screencastTrack = room.localParticipant.createScreencastTrack(mediaProjectionPermissionResultData = intent)
-                        room.localParticipant.publishVideoTrack(screencastTrack)
-                        screencastTrack.startForegroundService(null, null)
-                        screencastTrack.startCapture()
-                    } else {
-                        room.localParticipant.setScreenShareEnabled(false)
-                    }
-                }
+                // 屏幕共享推流逻辑
+                LaunchedEffect(enableScreenCapture) {
+                    val intent = enableScreenCapture
+                    if (intent != null) {
+                        val screencastTrack = room.localParticipant.createScreencastTrack(mediaProjectionPermissionResultData = intent)
+                        room.localParticipant.publishVideoTrack(screencastTrack)
+                        screencastTrack.startForegroundService(null, null)
+                        screencastTrack.startCapture()
+                    } else {
+                        room.localParticipant.setScreenShareEnabled(false)
+                    }
+                }
 
-                // --- UI 布局优化：增加醒目的状态提示 ---
-                ConstraintLayout(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        // 共享时背景变成深蓝色，不共享时保持深黑色，视觉区分明显
-                        .background(if (isSharing) Color(0xFF001A33) else Color(0xFF111111)),
-                ) {
-                    val (infoArea, buttonBar) = createRefs()
+                // UI 布局开始
+                ConstraintLayout(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF111111)),
+                ) {
+                    val (infoArea, buttonBar) = createRefs()
 
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 40.dp)
-                            .constrainAs(infoArea) {
-                                top.linkTo(parent.top)
-                                bottom.linkTo(buttonBar.top)
-                                start.linkTo(parent.start)
-                                end.linkTo(parent.end)
-                            },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        // 1. 标题增强：共享时变绿并加粗
-                        Text(
-                            text = if (isSharing) "● 正在共享屏幕" else "恩信共享助手",
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (isSharing) Color(0xFF00FF00) else Color(0xFF0A84FF),
-                            textAlign = TextAlign.Center
-                        )
-                        
-                        Spacer(modifier = Modifier.height(24.dp))
-                        
-                        // 2. 描述增强：共享时文字变白变大
-                        Text(
-                            text = if (isSharing)
-                                "您的实时画面已发送至会议\n已自动禁用音频接收，彻底杜绝回音"
-                                else "连接成功\n请点击下方按钮开启共享",
-                            fontSize = 18.sp,
-                            fontWeight = if (isSharing) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSharing) Color.White else Color.LightGray,
-                            lineHeight = 28.sp,
-                            textAlign = TextAlign.Center
-                        )
-                    }
+                    // 中间文字提示区域
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 40.dp)
+                            .constrainAs(infoArea) {
+                                top.linkTo(parent.top)
+                                bottom.linkTo(buttonBar.top)
+                                start.linkTo(parent.start)
+                                end.linkTo(parent.end)
+                            },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "恩信共享助手",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0A84FF),
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = if (enableScreenCapture == null)
+                                "连接完毕\n请点击下方按钮开启屏幕共享"
+                                else "正在共享屏幕中\n您的画面已实时同步至会议",
+                            fontSize = 16.sp,
+                            color = Color.LightGray,
+                            lineHeight = 24.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
 
-                    // 底部控制栏
-                    Row(
-                        modifier = Modifier
-                            .padding(bottom = 60.dp)
-                            .fillMaxWidth()
-                            .constrainAs(buttonBar) {
-                                bottom.linkTo(parent.bottom)
-                            },
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // 共享按钮：根据状态切换图标
-                        val screenShareResource = if (isSharing)
-                            R.drawable.baseline_cast_connected_24 else R.drawable.baseline_cast_24
-                        
-                        ControlButton(
-                            resourceId = screenShareResource,
-                            contentDescription = "Toggle Screen Share",
-                            onClick = {
-                                if (!isSharing) {
-                                    val mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                                    screenCaptureLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
-                                } else {
-                                    enableScreenCapture = null
-                                }
-                            }
-                        )
+                    // 底部控制栏
+                    Row(
+                        modifier = Modifier
+                            .padding(bottom = 50.dp)
+                            .fillMaxWidth()
+                            .constrainAs(buttonBar) {
+                                bottom.linkTo(parent.bottom)
+                            },
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val screenShareResource = if (enableScreenCapture != null)
+                            R.drawable.baseline_cast_connected_24 else R.drawable.baseline_cast_24
+                        
+                        ControlButton(
+                            resourceId = screenShareResource,
+                            contentDescription = "Toggle Screen Share",
+                            onClick = {
+                                if (enableScreenCapture == null) {
+                                    val mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                                    screenCaptureLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
+                                } else {
+                                    enableScreenCapture = null
+                                }
+                            }
+                        )
 
-                        // 退出按钮
-                        ControlButton(
-                            resourceId = R.drawable.ic_baseline_cancel_24,
-                            contentDescription = "Disconnect",
-                            onClick = { finish() }
-                        )
-                    }
-                }
-            }
-        }
-    }
+                        ControlButton(
+                            resourceId = R.drawable.ic_baseline_cancel_24,
+                            contentDescription = "Disconnect",
+                            onClick = { finish() }
+                        )
+                    }
+                }
+            }
+        }
+    }
 
-    // --- 核心修复点 1：关闭自动订阅 (彻底解决回音) ---
-    private fun defaultRoomOptions(customizer: (RoomOptions) -> RoomOptions): RoomOptions {
-        return customizer(RoomOptions(
-            autoSubscribe = false, // 关键：设置为 false，不接收任何人的音频/视频
-            adaptiveStream = false, // 助手不需要拉流，关闭自适应
-            dynacast = true,
-            videoTrackPublishDefaults = VideoTrackPublishDefaults(
-                videoEncoding = VideoPreset169.H720.encoding.copy(maxBitrate = 3_000_000),
-                simulcast = true,
-            ),
-        ))
-    }
+    private fun defaultRoomOptions(customizer: (RoomOptions) -> RoomOptions): RoomOptions {
+        return customizer(RoomOptions(
+            adaptiveStream = true,
+            dynacast = true,
+            // 【核心修改点】
+            // 1. 禁用音频输出辅助工厂，SDK 将无法创建播放器实例
+            audioOutputHelperFactory = null,
+            // 2. 将音频订阅默认关闭（可选，但双重保险）
+            audioTrackCaptureDefaults = null,
+            videoTrackPublishDefaults = VideoTrackPublishDefaults(
+                videoEncoding = VideoPreset169.H720.encoding.copy(maxBitrate = 3_000_000),
+                simulcast = true,
+            ),
+        ))
+    }
 
-    // --- 核心修复点 2：保留结构但削弱音频处理 (防止焦点冲突) ---
-    private fun DefaultLKOverrides(context: Context) = LiveKitOverrides(
-        audioOptions = AudioOptions(
-            audioHandler = AudioSwitchHandler(context).apply {
-                // 虽然保留了处理器防止编译失败，但因为上面禁用了订阅，这里不会有声音输出
-                preferredDeviceList = listOf(
-                    AudioDevice.Speakerphone::class.java
-                )
-            }
-        )
-    )
+    private fun DefaultLKOverrides(context: Context) = LiveKitOverrides(
+        audioOptions = AudioOptions(
+            audioHandler = AudioSwitchHandler(context).apply {
+                preferredDeviceList = listOf(
+                    AudioDevice.BluetoothHeadset::class.java,
+                    AudioDevice.WiredHeadset::class.java,
+                    AudioDevice.Speakerphone::class.java
+                )
+            }
+        )
+    )
 
-    companion object {
-        const val KEY_ARGS = "args"
-    }
+    companion object {
+        const val KEY_ARGS = "args"
+    }
 
-    @Parcelize
-    data class BundleArgs(
-        val url: String,
-        val token: String,
-        val e2eeKey: String?,
-        val e2eeOn: Boolean,
-    ) : Parcelable
+    @Parcelize
+    data class BundleArgs(
+        val url: String,
+        val token: String,
+        val e2eeKey: String?,
+        val e2eeOn: Boolean,
+    ) : Parcelable
 }
