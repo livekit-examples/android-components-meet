@@ -40,13 +40,13 @@ fun SendMessageDialog(
     AlertDialog(
         onDismissRequest = onDismissRequest,
         title = {
-            Text(text = "Send Message")
+            Text(text = "发送消息（此功能不可用于恩信会议）")
         },
         text = {
             OutlinedTextField(
                 value = messageToSend,
                 onValueChange = { messageToSend = it },
-                label = { Text("Message") },
+                label = { Text("消息") },
                 modifier = Modifier.fillMaxWidth(),
             )
         },
@@ -55,12 +55,12 @@ fun SendMessageDialog(
                 onClick = {
                     onSendMessage(messageToSend)
                 },
-            ) { Text("Send") }
+            ) { Text("发送") }
         },
         dismissButton = {
             Button(
                 onClick = onDismissRequest,
-            ) { Text("Cancel") }
+            ) { Text("取消") }
         },
         containerColor = Color.Black,
     )
